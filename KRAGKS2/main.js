@@ -682,9 +682,13 @@ phina.define('MainScene', {
         let scoreThisTurn = baseScore * totalBonus;
         this.score += scoreThisTurn;
         this.scoreLabel.text = 'とくてん ' + this.score;
-        let tmpAlpha = this.score / 10000.0;
+
+        // 背景の透明度計算
+        let tmpAlpha = this.score / 100000.0;
         if (tmpAlpha >= 1.0) tmpAlpha = 1.0;
         this.bgSprite.alpha = tmpAlpha;
+
+        // 落下速度
         if (this.score <= 10000) {
             this.fallInterval = 800 * 1.0;
         } else if (this.score <= 30000) {
