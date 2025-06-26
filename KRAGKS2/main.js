@@ -128,6 +128,7 @@ phina.define('MainScene', {
         this.score = 0;
         this.gameOver = false;
         this.chainCount = 0;
+        this.maxChainCount = -1;
         this.isFastDropping = false;
 
         // スプライトグループ
@@ -147,10 +148,15 @@ phina.define('MainScene', {
 
         this.chainLabel = phina.display.Label({
             text: '',
-            fontSize: 32,
+            fontSize: 64,
             fontFamily: "misaki_gothic",
+            align: "center",
             fill: 'red',
-        }).addChildTo(this).setPosition(SCREEN_WIDTH / 2, 100);
+            stroke: "white",
+            strokeWidth: 1,
+            shadow: "black",
+            shadowBlur: 10,
+        }).addChildTo(this).setPosition(SCREEN_CENTER_X, SCREEN_CENTER_Y);
 
         // Next表示エリア
         this.nextLabel = phina.display.Label({
@@ -247,6 +253,7 @@ phina.define('MainScene', {
         this.score = 0;
         this.gameOver = false;
         this.chainCount = 0;
+        this.maxChainCount = -1;
         this.isFastDropping = false;
         this.fallTimer = 0;
 
@@ -291,6 +298,9 @@ phina.define('MainScene', {
                 (p2.y >= 0 && this.field[p2.y][p2.x] !== EMPTY_COLOR_ID)) {
                 // ゲームオーバーの準備
                 let postText = "からあげKISS 2\n" + this.score + "てん";
+                if (this.maxChainCount > 1) {
+                    postText += "\n最大" + this.maxChainCount + "連鎖";
+                }
 
                 // for X
                 xButton = Button(
@@ -577,7 +587,10 @@ phina.define('MainScene', {
                 this.chainCount = currentChain;
 
                 if (currentChain > 1) {
-                    this.chainLabel.text = `${currentChain} 連鎖!`;
+                    this.chainLabel.text = `${currentChain}\n連鎖!!`;
+                    if (currentChain > this.maxChainCount) {
+                        this.maxChainCount = currentChain;
+                    }
                 }
 
                 let totalErased = 0;
