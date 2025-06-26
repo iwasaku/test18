@@ -92,13 +92,13 @@ phina.define("TitleScene", {
         // ラベル
         Label({
             text: 'からあげ\nKISS\n2',
-            fontSize: 100,
+            fontSize: 70,
             fontFamily: "misaki_gothic",
             fill: 'white',
         }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center() - (SCREEN_HEIGHT * 1 / 8));
         Label({
             text: 'TAP TO START',
-            fontSize: 80,
+            fontSize: 50,
             fontFamily: "misaki_gothic",
             fill: 'white',
         }).addChildTo(this).setPosition(SCREEN_CENTER_X, SCREEN_CENTER_Y + (SCREEN_HEIGHT * 1 / 4));
@@ -194,7 +194,6 @@ phina.define('MainScene', {
         // ゲームループ
         this.fallTimer = 0;
         this.fallInterval = 800;
-        this.fallIntervalDelta = 10;
     },
 
     setupTouchControls: function () {
@@ -218,8 +217,12 @@ phina.define('MainScene', {
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
             if (distance < this.minSwipeDistance) {
-                // タップ - 回転
-                this.rotatePuyo();
+                // タップ - 回転（画面の左右で回転方向を変える）
+                if (e.pointer.x < SCREEN_WIDTH / 2) {
+                    this.rotatePuyo(-1); // 左回転
+                } else {
+                    this.rotatePuyo(1);  // 右回転
+                }
             } else {
                 // スワイプ
                 if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -293,16 +296,16 @@ phina.define('MainScene', {
                 xButton = Button(
                     {
                         text: String.fromCharCode(0xe902),
-                        fontSize: 32,
+                        fontSize: 24,
                         fontFamily: "icomoon",
                         fill: "#7575EF",  // ボタン色
                         stroke: '#DEE3FF',         // 枠色
                         strokeWidth: 5,         // 枠太さ
                         cornerRadius: 8,
-                        width: 64,
-                        height: 64,
+                        width: 48,
+                        height: 48,
                     }
-                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) - 80, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
+                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) - 60, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
                     // https://developer.x.com/en/docs/twitter-for-websites/tweet-button/guides/web-intent
                     let shareURL = "https://x.com/intent/tweet?text=" + encodeURIComponent(postText + "\n" + postTags + "\n") + "&url=" + encodeURIComponent(postURL);
                     window.open(shareURL);
@@ -311,14 +314,14 @@ phina.define('MainScene', {
                 threadsButton = Button(
                     {
                         text: String.fromCharCode(0xe901),
-                        fontSize: 32,
+                        fontSize: 24,
                         fontFamily: "icomoon",
                         fill: "#7575EF",  // ボタン色
                         stroke: '#DEE3FF',         // 枠色
                         strokeWidth: 5,         // 枠太さ
                         cornerRadius: 8,
-                        width: 64,
-                        height: 64,
+                        width: 48,
+                        height: 48,
                     }
                 ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2), SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
                     // https://developers.facebook.com/docs/threads/threads-web-intents/
@@ -330,31 +333,30 @@ phina.define('MainScene', {
                 bskyButton = Button(
                     {
                         text: String.fromCharCode(0xe900),
-                        fontSize: 32,
+                        fontSize: 24,
                         fontFamily: "icomoon",
                         fill: "#7575EF",  // ボタン色
                         stroke: '#DEE3FF',         // 枠色
                         strokeWidth: 5,         // 枠太さ
                         cornerRadius: 8,
-                        width: 64,
-                        height: 64,
+                        width: 48,
+                        height: 48,
                     }
-                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) + 80, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
+                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) + 60, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
                     // https://docs.bsky.app/docs/advanced-guides/intent-links
                     let shareURL = "https://bsky.app/intent/compose?text=" + encodeURIComponent(postText + "\n" + postTags + "\n" + postURL);
                     window.open(shareURL);
                 };
-
                 // RESTARTボタンの表示
                 restartButton = Button(
                     {
                         text: "RESTART",
-                        fontSize: 32,
+                        fontSize: 24,
                         fontFamily: "misaki_gothic",
                         align: "center",
                         baseline: "middle",
                         width: 150,
-                        height: 75,
+                        height: 48,
                         fill: "#B2B2B2",
                         stroke: '#DEE3FF',         // 枠色
                         strokeWidth: 5,         // 枠太さ
@@ -474,10 +476,10 @@ phina.define('MainScene', {
         }
     },
 
-    rotatePuyo: function () {
+    rotatePuyo: function (direction = 1) {
         if (!this.currentPuyo || this.gameOver) return;
 
-        const newRotationState = (this.currentPuyo.rotationState + 1) % 4;
+        const newRotationState = (this.currentPuyo.rotationState + direction + 4) % 4;
         const p1 = this.currentPuyo.p1;
         const relPos = this.getP2RelativePosition(newRotationState);
         const newP2X = p1.x + relPos.x;
@@ -683,13 +685,30 @@ phina.define('MainScene', {
         let tmpAlpha = this.score / 10000.0;
         if (tmpAlpha >= 1.0) tmpAlpha = 1.0;
         this.bgSprite.alpha = tmpAlpha;
-        this.fallInterval -= this.fallIntervalDelta;
-        if (this.fallInterval < 400) {
-            this.fallInterval = 800;
-            this.fallIntervalDelta += 2;
-            if (this.fallIntervalDelta > 20) {
-                this.fallIntervalDelta = 20;
-            }
+        if (this.score <= 10000) {
+            this.fallInterval = 800 * 1.0;
+        } else if (this.score <= 30000) {
+            this.fallInterval = 800 * 0.8;
+        } else if (this.score <= 50000) {
+            this.fallInterval = 800 * 0.6;
+        } else if (this.score <= 70000) {
+            this.fallInterval = 800 * 0.4;
+        } else if (this.score <= 80000) {
+            this.fallInterval = 800 * 1.0;
+        } else if (this.score <= 90000) {
+            this.fallInterval = 800 * 0.8;
+        } else if (this.score <= 100000) {
+            this.fallInterval = 800 * 0.6;
+        } else if (this.score <= 110000) {
+            this.fallInterval = 800 * 0.4;
+        } else if (this.score <= 115000) {
+            this.fallInterval = 800 * 1.0;
+        } else if (this.score <= 120000) {
+            this.fallInterval = 800 * 0.8;
+        } else if (this.score <= 125000) {
+            this.fallInterval = 800 * 0.6;
+        } else {
+            this.fallInterval = 800 * 0.4;
         }
         SoundManager.play("hit");
     },
