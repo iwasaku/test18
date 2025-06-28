@@ -560,10 +560,16 @@ phina.define('MainScene', {
         this.isFastDropping = false;
         this.updateFieldSprites();
 
-        // 連鎖処理を遅延実行
+        // 着地後、まず重力に従って分離したぷよを落下させる
+        // その後に連鎖判定を行う
         setTimeout(() => {
-            this.processChain();
-        }, 100);
+            this.applyGravity();
+            this.updateFieldSprites();
+
+            setTimeout(() => {
+                this.processChain();
+            }, 10);
+        }, 10);
     },
 
     processChain: function () {
@@ -602,7 +608,7 @@ phina.define('MainScene', {
                 setTimeout(() => {
                     this.applyGravity();
                     this.updateFieldSprites();
-                    setTimeout(checkAndProcess, 300);
+                    setTimeout(checkAndProcess, 150);
                 }, 350);
             } else {
                 this.chainLabel.text = '';
@@ -657,6 +663,7 @@ phina.define('MainScene', {
     },
 
     applyGravity: function () {
+        let moved = false;
         for (let c = 0; c < FIELD_COL; c++) {
             let emptySlot = FIELD_ROW - 1;
             for (let r = FIELD_ROW - 1; r >= 0; r--) {
@@ -664,11 +671,13 @@ phina.define('MainScene', {
                     if (r !== emptySlot) {
                         this.field[emptySlot][c] = this.field[r][c];
                         this.field[r][c] = EMPTY_COLOR_ID;
+                        moved = true;
                     }
                     emptySlot--;
                 }
             }
         }
+        return moved;
     },
 
     calculateScore: function (erasedCount, chainNumber, numColors) {
