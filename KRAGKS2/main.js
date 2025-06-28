@@ -10,8 +10,9 @@ const SCREEN_WIDTH = 480;
 const SCREEN_HEIGHT = 640;
 const SCREEN_CENTER_X = SCREEN_WIDTH / 2;   // スクリーン幅の半分
 const SCREEN_CENTER_Y = SCREEN_HEIGHT / 2;  // スクリーン高さの半分
-const PUYO_COLORS = ['#FF4136', '#2ECC40', '#0074D9', '#FFDC00', '#B10DC9'];
+const PUYO_COLORS = ['#FF4136', '#2ECC40', '#0074D9', '#FFDC00', '#B10DC9', '#FF851B'];
 const EMPTY_COLOR_ID = 0;
+const BASE_FALL_INTERVAL = 800; // 落下間隔の基本値
 
 // 共有ボタン用
 let postText = null;
@@ -63,21 +64,15 @@ phina.define("InitScene", {
     init: function (option) {
         // 親クラス初期化
         this.superInit(option);
-        this.font1 = false;
-        this.font2 = false;
-    },
-    update: function (app) {
-        // フォント読み込み待ち
-        var self = this;
-        document.fonts.load('10pt "misaki_gothic"').then(function () {
-            self.font1 = true;
+
+        // フォント読み込み
+        const font1 = document.fonts.load('10pt "misaki_gothic"');
+        const font2 = document.fonts.load('10pt "icomoon"');
+
+        // 両方のフォントが読み込めたら次へ
+        Promise.all([font1, font2]).then(() => {
+            this.exit();
         });
-        document.fonts.load('10pt "icomoon"').then(function () {
-            self.font2 = true;
-        });
-        if (this.font1 && this.font2) {
-            self.exit();
-        }
     }
 });
 
@@ -114,8 +109,6 @@ phina.define('MainScene', {
     superClass: 'DisplayScene',
 
     init: function () {
-        that = this;
-
         this.superInit({
             width: SCREEN_WIDTH,
             height: SCREEN_HEIGHT,
@@ -199,7 +192,7 @@ phina.define('MainScene', {
 
         // ゲームループ
         this.fallTimer = 0;
-        this.fallInterval = 800;
+        this.fallInterval = BASE_FALL_INTERVAL;
     },
 
     setupTouchControls: function () {
@@ -257,7 +250,7 @@ phina.define('MainScene', {
         this.isFastDropping = false;
         this.fallTimer = 0;
 
-        this.scoreLabel.text = 'とくてん 0';
+        this.scoreLabel.text = 'とくてん ' + this.score;
         this.chainLabel.text = '';
         this.gameOverGroup.visible = false;
 
@@ -275,8 +268,14 @@ phina.define('MainScene', {
     },
 
     createPuyoPair: function () {
-        const color1 = PUYO_COLORS[Math.floor(Math.random() * PUYO_COLORS.length)];
-        const color2 = PUYO_COLORS[Math.floor(Math.random() * PUYO_COLORS.length)];
+        const difficultyLevels = [
+            { scoreThreshold: 10000, colorCount: PUYO_COLORS.length - 2 },
+            { scoreThreshold: 100000, colorCount: PUYO_COLORS.length - 1 },
+        ];
+        const currentLevel = difficultyLevels.find(level => this.score <= level.scoreThreshold);
+        const colorMax = currentLevel ? currentLevel.colorCount : PUYO_COLORS.length;
+        const color1 = PUYO_COLORS[Math.floor(Math.random() * colorMax)];
+        const color2 = PUYO_COLORS[Math.floor(Math.random() * colorMax)];
 
         return {
             p1: { x: Math.floor(FIELD_COL / 2) - 1, y: 0, color: color1 },
@@ -297,98 +296,7 @@ phina.define('MainScene', {
             if ((p1.y >= 0 && this.field[p1.y][p1.x] !== EMPTY_COLOR_ID) ||
                 (p2.y >= 0 && this.field[p2.y][p2.x] !== EMPTY_COLOR_ID)) {
                 // ゲームオーバーの準備
-                let postText = "からあげKISS 2\n" + this.score + "てん";
-                if (this.maxChainCount > 1) {
-                    postText += "\n最大" + this.maxChainCount + "連鎖";
-                }
-
-                // for X
-                xButton = Button(
-                    {
-                        text: String.fromCharCode(0xe902),
-                        fontSize: 24,
-                        fontFamily: "icomoon",
-                        fill: "#7575EF",  // ボタン色
-                        stroke: '#DEE3FF',         // 枠色
-                        strokeWidth: 5,         // 枠太さ
-                        cornerRadius: 8,
-                        width: 48,
-                        height: 48,
-                    }
-                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) - 60, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
-                    // https://developer.x.com/en/docs/twitter-for-websites/tweet-button/guides/web-intent
-                    let shareURL = "https://x.com/intent/tweet?text=" + encodeURIComponent(postText + "\n" + postTags + "\n") + "&url=" + encodeURIComponent(postURL);
-                    window.open(shareURL);
-                };
-                // for Threads
-                threadsButton = Button(
-                    {
-                        text: String.fromCharCode(0xe901),
-                        fontSize: 24,
-                        fontFamily: "icomoon",
-                        fill: "#7575EF",  // ボタン色
-                        stroke: '#DEE3FF',         // 枠色
-                        strokeWidth: 5,         // 枠太さ
-                        cornerRadius: 8,
-                        width: 48,
-                        height: 48,
-                    }
-                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2), SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
-                    // https://developers.facebook.com/docs/threads/threads-web-intents/
-                    // web intentでのハッシュタグの扱いが環境（ブラウザ、iOS、Android）によって違いすぎるので『#』を削って通常の文字列にしておく
-                    let shareURL = "https://www.threads.net/intent/post?text=" + encodeURIComponent(postText + "\n\n" + postTags.replace(/#/g, "")) + "&url=" + encodeURIComponent(postURL);
-                    window.open(shareURL);
-                };
-                // for Bluesky
-                bskyButton = Button(
-                    {
-                        text: String.fromCharCode(0xe900),
-                        fontSize: 24,
-                        fontFamily: "icomoon",
-                        fill: "#7575EF",  // ボタン色
-                        stroke: '#DEE3FF',         // 枠色
-                        strokeWidth: 5,         // 枠太さ
-                        cornerRadius: 8,
-                        width: 48,
-                        height: 48,
-                    }
-                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) + 60, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onclick = function () {
-                    // https://docs.bsky.app/docs/advanced-guides/intent-links
-                    let shareURL = "https://bsky.app/intent/compose?text=" + encodeURIComponent(postText + "\n" + postTags + "\n" + postURL);
-                    window.open(shareURL);
-                };
-                // RESTARTボタンの表示
-                restartButton = Button(
-                    {
-                        text: "RESTART",
-                        fontSize: 24,
-                        fontFamily: "misaki_gothic",
-                        align: "center",
-                        baseline: "middle",
-                        width: 150,
-                        height: 48,
-                        fill: "#B2B2B2",
-                        stroke: '#DEE3FF',         // 枠色
-                        strokeWidth: 5,         // 枠太さ
-                    }
-                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X + (SCREEN_CENTER_X / 2), SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2)).onpush = function () {
-                    //that.restartGame();
-                    that.init();
-                };
-                gameOverLabel = Label(
-                    {
-                        text: "GAME OVER",
-                        fontSize: 96,
-                        fontFamily: "misaki_gothic",
-                        align: "center",
-
-                        fill: "white",
-                        stroke: "white",
-                        strokeWidth: 1,
-                        shadow: "black",
-                        shadowBlur: 10,
-                    }
-                ).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X, SCREEN_CENTER_Y);
+                this._setupGameOverScreen();
                 SoundManager.play("gameover");
                 this.gameOver = true;
                 this.gameOverGroup.visible = true;
@@ -400,36 +308,111 @@ phina.define('MainScene', {
         this.updateNextPuyoDisplay();
     },
 
-    createPuyoSprite: function (color, x, y) {
-        let color_num = 0;
-        for (let ii = 0; ii < PUYO_COLORS.length; ii++) {
-            if (color == PUYO_COLORS[ii]) {
-                color_num = ii;
-                break;
-            }
+    _setupGameOverScreen: function () {
+        let postText = "からあげKISS 2\n" + this.score + "てん";
+        if (this.maxChainCount > 1) {
+            postText += "\n最大" + this.maxChainCount + "連鎖";
         }
-        const sprite = Sprite("ball_0" + color_num);
-        sprite.setSize(BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+
+        // for X
+        const xButton = Button({
+            text: String.fromCharCode(0xe902),
+            fontSize: 24,
+            fontFamily: "icomoon",
+            fill: "#7575EF",
+            stroke: '#DEE3FF',
+            strokeWidth: 5,
+            cornerRadius: 8,
+            width: 48,
+            height: 48,
+        }).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) - 60, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2));
+        xButton.onclick = () => {
+            const shareURL = "https://x.com/intent/tweet?text=" + encodeURIComponent(postText + "\n" + postTags + "\n") + "&url=" + encodeURIComponent(postURL);
+            window.open(shareURL);
+        };
+
+        // for Threads
+        const threadsButton = Button({
+            text: String.fromCharCode(0xe901),
+            fontSize: 24,
+            fontFamily: "icomoon",
+            fill: "#7575EF",
+            stroke: '#DEE3FF',
+            strokeWidth: 5,
+            cornerRadius: 8,
+            width: 48,
+            height: 48,
+        }).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2), SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2));
+        threadsButton.onclick = () => {
+            const shareURL = "https://www.threads.net/intent/post?text=" + encodeURIComponent(postText + "\n\n" + postTags.replace(/#/g, "")) + "&url=" + encodeURIComponent(postURL);
+            window.open(shareURL);
+        };
+
+        // for Bluesky
+        const bskyButton = Button({
+            text: String.fromCharCode(0xe900),
+            fontSize: 24,
+            fontFamily: "icomoon",
+            fill: "#7575EF",
+            stroke: '#DEE3FF',
+            strokeWidth: 5,
+            cornerRadius: 8,
+            width: 48,
+            height: 48,
+        }).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X - (SCREEN_CENTER_X / 2) + 60, SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2));
+        bskyButton.onclick = () => {
+            const shareURL = "https://bsky.app/intent/compose?text=" + encodeURIComponent(postText + "\n" + postTags + "\n" + postURL);
+            window.open(shareURL);
+        };
+
+        // RESTARTボタンの表示
+        const restartButton = Button({
+            text: "RESTART",
+            fontSize: 24,
+            fontFamily: "misaki_gothic",
+            align: "center",
+            baseline: "middle",
+            width: 150,
+            height: 48,
+            fill: "#B2B2B2",
+            stroke: '#DEE3FF',
+            strokeWidth: 5,
+        }).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X + (SCREEN_CENTER_X / 2), SCREEN_CENTER_Y + (SCREEN_CENTER_Y / 2));
+        restartButton.onpush = () => this.init();
+
+        const gameOverLabel = Label({
+            text: "GAME OVER",
+            fontSize: 96,
+            fontFamily: "misaki_gothic",
+            align: "center",
+            fill: "white",
+            stroke: "white",
+            strokeWidth: 1,
+            shadow: "black",
+            shadowBlur: 10,
+        }).addChildTo(this.gameOverGroup).setPosition(SCREEN_CENTER_X, SCREEN_CENTER_Y);
+    },
+
+    // ぷよスプライトの基本部分を生成する共通メソッド
+    _createBasePuyoSprite: function (color) {
+        // color（色の文字列）から配列のインデックス番号を取得
+        const colorIndex = PUYO_COLORS.indexOf(color);
+        const assetName = `ball_0${colorIndex}`;
+        return Sprite(assetName).setSize(BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+    },
+
+    createPuyoSprite: function (color, x, y) {
+        const sprite = this._createBasePuyoSprite(color);
         sprite.setPosition(
             (x + 0.5) * BLOCK_SIZE + (SCREEN_WIDTH - FIELD_COL * BLOCK_SIZE) / 2,
             (y + 0.5) * BLOCK_SIZE + (SCREEN_HEIGHT - FIELD_ROW * BLOCK_SIZE) / 2 + BLOCK_SIZE / 2
         );
-
         return sprite;
     },
 
     createNextPuyoSprite: function (color, offsetX, offsetY) {
-        let color_num = 0;
-        for (let ii = 0; ii < PUYO_COLORS.length; ii++) {
-            if (color == PUYO_COLORS[ii]) {
-                color_num = ii;
-                break;
-            }
-        }
-        const sprite = Sprite("ball_0" + color_num);
-        sprite.setSize(BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+        const sprite = this._createBasePuyoSprite(color);
         sprite.setPosition(SCREEN_CENTER_X + (4 * BLOCK_SIZE) + offsetX, SCREEN_CENTER_Y - (3 * BLOCK_SIZE) + offsetY);
-
         return sprite;
     },
 
@@ -547,6 +530,13 @@ phina.define('MainScene', {
         if (this.isStateValid(this.currentPuyo.p1.x, p1NextY, this.currentPuyo.p2.x, p2NextY)) {
             this.currentPuyo.p1.y = p1NextY;
             this.currentPuyo.p2.y = p2NextY;
+
+            // 高速落下ボーナス
+            if (this.isFastDropping) {
+                this.score += 1;
+                this.scoreLabel.text = 'とくてん ' + this.score;
+            }
+
             this.updatePuyoSprites();
             return true;
         } else {
@@ -701,32 +691,25 @@ phina.define('MainScene', {
         if (tmpAlpha >= 1.0) tmpAlpha = 1.0;
         this.bgSprite.alpha = tmpAlpha;
 
-        // 落下速度
-        if (this.score <= 10000) {
-            this.fallInterval = 800 * 1.0;
-        } else if (this.score <= 30000) {
-            this.fallInterval = 800 * 0.8;
-        } else if (this.score <= 50000) {
-            this.fallInterval = 800 * 0.6;
-        } else if (this.score <= 70000) {
-            this.fallInterval = 800 * 0.4;
-        } else if (this.score <= 80000) {
-            this.fallInterval = 800 * 1.0;
-        } else if (this.score <= 90000) {
-            this.fallInterval = 800 * 0.8;
-        } else if (this.score <= 100000) {
-            this.fallInterval = 800 * 0.6;
-        } else if (this.score <= 110000) {
-            this.fallInterval = 800 * 0.4;
-        } else if (this.score <= 115000) {
-            this.fallInterval = 800 * 1.0;
-        } else if (this.score <= 120000) {
-            this.fallInterval = 800 * 0.8;
-        } else if (this.score <= 125000) {
-            this.fallInterval = 800 * 0.6;
-        } else {
-            this.fallInterval = 800 * 0.4;
-        }
+        // スコアに応じて落下速度を調整
+        const fallSpeedLevels = [
+            { scoreThreshold: 10000, multiplier: 1.0 },
+            { scoreThreshold: 30000, multiplier: 0.8 },
+            { scoreThreshold: 50000, multiplier: 0.6 },
+            { scoreThreshold: 70000, multiplier: 0.4 },
+            { scoreThreshold: 80000, multiplier: 1.0 },
+            { scoreThreshold: 90000, multiplier: 0.8 },
+            { scoreThreshold: 100000, multiplier: 0.6 },
+            { scoreThreshold: 110000, multiplier: 0.4 },
+            { scoreThreshold: 115000, multiplier: 1.0 },
+            { scoreThreshold: 120000, multiplier: 0.8 },
+            { scoreThreshold: 125000, multiplier: 0.6 },
+        ];
+        const currentLevel = fallSpeedLevels.find(level => this.score <= level.scoreThreshold);
+        // どの閾値にも当てはまらない場合はデフォルト値(0.4)を使用
+        const fallSpeedMultiplier = currentLevel ? currentLevel.multiplier : 0.4;
+        this.fallInterval = BASE_FALL_INTERVAL * fallSpeedMultiplier;
+
         SoundManager.play("hit");
     },
 

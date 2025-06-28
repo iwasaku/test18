@@ -8,6 +8,7 @@ var ASSETS = {
         "ball_02": "https://iwasaku.github.io/test15/KRAGKS/resource/krag02.png",
         "ball_03": "https://iwasaku.github.io/test15/KRAGKS/resource/krag03.png",
         "ball_04": "https://iwasaku.github.io/test15/KRAGKS/resource/krag04.png",
+        "ball_05": "https://iwasaku.github.io/test15/KRAGKS/resource/krag05.png",
 
         "bg": "https://iwasaku.github.io/test15/KRAGKS/resource/bg.jpg",
     },
